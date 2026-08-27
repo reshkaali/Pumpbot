@@ -2,7 +2,6 @@ require('dotenv').config();
 const http = require('http');
 const { Bot, InlineKeyboard, GrammyError, HttpError } = require('grammy');
 const { Keypair, Connection, PublicKey, SystemProgram, Transaction, LAMPORTS_PER_SOL, sendAndConfirmTransaction } = require('@solana/web3.js');
-const bs58 = require('bs58');
 
 // 1. Render Keep-Alive Server
 http.createServer((req, res) => {
@@ -12,7 +11,6 @@ http.createServer((req, res) => {
 }).listen(process.env.PORT || 3000);
 
 const token = process.env.BOT_TOKEN;
-if (!token) console.error('⚠️ BOT_TOKEN təyin edilməyib!');
 
 let rawRpc = (process.env.HELIUS_RPC_URL || '').trim();
 if (rawRpc.startsWith('"') && rawRpc.endsWith('"')) {
@@ -33,6 +31,28 @@ bot.catch((err) => {
   else if (e instanceof HttpError) console.error("Şəbəkə Xətası:", e);
   else console.error("Bilinməyən Xəta:", e);
 });
+
+// Helper: Base58 encoder/decoder (bs58 asılılığını aradan qaldırmaq üçün)
+const ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+function encodeBase58(buffer) {
+  let digits = [0];
+  for (let i = 0; i < buffer.length; i++) {
+    for (let j = 0; j < digits.length; j++) digits[j] <<= 8;
+    digits[0] += buffer[i];
+    let carry = 0;
+    for (let j = 0; j < digits.length; j++) {
+      digits[j] += carry;
+      carry = (digits[j] / 58) | 0;
+      digits[j] %= 58;
+    }
+    while (carry) {
+      digits.push(carry % 58);
+      carry = (carry / 58) | 0;
+    }
+  }
+  for (let i = 0; buffer[i] === 0 && i < buffer.length - 1; i++) digits.push(0);
+  return digits.reverse().map(d => ALPHABET[d]).join('');
+}
 
 // 2. Çoxdilli Sözlük (Dictionary)
 const i18n = {
@@ -242,7 +262,6 @@ bot.callbackQuery('set_mode_live', async (ctx) => {
   await ctx.editMessageText(menu.msg, { parse_mode: 'HTML', reply_markup: menu.kb }).catch(() => {});
 });
 
-// Demo Cüzdan İdarəçiliyi
 bot.callbackQuery('view_demo_wallet', async (ctx) => {
   await ctx.answerCallbackQuery();
   state.waitingInput = 'add_demo_sol_amount';
@@ -250,7 +269,6 @@ bot.callbackQuery('view_demo_wallet', async (ctx) => {
   await ctx.reply(`💵 <b>Demo SOL Balansınız:</b> ${state.demoBalanceSol.toFixed(4)} SOL\n\n${t('enterDemoSol')}`, { parse_mode: 'HTML', reply_markup: kb });
 });
 
-// Live Cüzdanlar
 bot.callbackQuery('view_live_wallet', async (ctx) => {
   await ctx.answerCallbackQuery();
   await renderLiveWalletsMenu(ctx);
@@ -292,7 +310,7 @@ bot.callbackQuery('create_real_wallet', async (ctx) => {
   const newW = {
     id: state.liveWallets.length + 1,
     publicKey: kp.publicKey.toBase58(),
-    privateKey: bs58.encode(kp.secretKey)
+    privateKey: encodeBase58(Buffer.from(kp.secretKey))
   };
 
   state.liveWallets.push(newW);
@@ -307,7 +325,6 @@ bot.callbackQuery(/^activate_wallet_(\d+)$/, async (ctx) => {
   await renderLiveWalletsMenu(ctx);
 });
 
-// Target Əlavə Et / İzləmə
 bot.callbackQuery('action_add_target', async (ctx) => {
   await ctx.answerCallbackQuery();
   state.waitingInput = 'target_address';
@@ -349,7 +366,6 @@ bot.callbackQuery(/^confirm_delete_target_(\d+)$/, async (ctx) => {
   await ctx.reply(`✅ <b>${removed[0]?.username || 'Ünvan'}</b> izləmədən silindi!`, { parse_mode: 'HTML' });
 });
 
-// Açıq Və Qapalı Pozisiyalar
 bot.callbackQuery('view_open_pos', async (ctx) => {
   await ctx.answerCallbackQuery();
   if (state.openPositions.length === 0) return ctx.reply('📈 Açıq pozisiyanız yoxdur.');
@@ -417,7 +433,6 @@ bot.callbackQuery('view_closed_pos', async (ctx) => {
   await ctx.reply(msg, { parse_mode: 'HTML', reply_markup: kb });
 });
 
-// Tənzimləmələr (Settings & King TP)
 bot.callbackQuery('view_settings', async (ctx) => {
   await ctx.answerCallbackQuery();
   const s = state.settings;
@@ -449,7 +464,6 @@ bot.callbackQuery('set_buy_amount', async (ctx) => {
   await ctx.reply('✏️ Hər alqı-satqı üçün qoyulacaq SOL məbləğini yazın (məs: 0.05):');
 });
 
-// Dillər (Language)
 bot.callbackQuery('view_language', async (ctx) => {
   await ctx.answerCallbackQuery();
   const kb = new InlineKeyboard()
@@ -469,14 +483,12 @@ bot.callbackQuery(/^set_lang_(EN|AZ|TR|RU)$/, async (ctx) => {
   await ctx.reply(menu.msg, { parse_mode: 'HTML', reply_markup: menu.kb });
 });
 
-// Real Tranzaksiya / Transfer (Köçür)
 bot.callbackQuery('action_withdraw', async (ctx) => {
   await ctx.answerCallbackQuery();
   state.waitingInput = 'withdraw_addr';
   await ctx.reply('💸 <b>SOL Transferi</b>\n\nGöndərmək istədiyiniz Solana cüzdan ünvanını daxil edin:', { parse_mode: 'HTML' });
 });
 
-// Mətn Mesajı Dinləyicisi (Inputs)
 bot.on('message:text', async (ctx) => {
   const text = ctx.message.text.trim();
 
@@ -520,18 +532,4 @@ bot.on('message:text', async (ctx) => {
         `Bu ünvanı təsdiqləyib izləmə siyahısına əlavə etmək istəyirsiniz?`;
 
       const kb = new InlineKeyboard()
-        .text('✅ Təsdiqlə', 'confirm_add_target')
-        .text('❌ Ləğv Et', 'action_refresh');
-
-      return ctx.reply(msg, { parse_mode: 'HTML', reply_markup: kb });
-    } catch (e) {
-      return ctx.reply(t('invalidAddr'));
-    }
-  }
-
-  if (state.waitingInput === 'withdraw_addr') {
-    try {
-      new PublicKey(text);
-      state.withdrawTemp.toAddress = text;
-      state.waitingInput = 'withdraw_amount';
-      return ctx.reply('Göndərmək istədiyini
+        .text('✅ Təsdiqlə', 'confirm_add
