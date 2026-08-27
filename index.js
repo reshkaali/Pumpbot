@@ -539,4 +539,4 @@ bot.callbackQuery(/^set_lang_(EN|AZ|TR|RU)$/, async (ctx) => {
 bot.callbackQuery('action_withdraw', async (ctx) => {
   await ctx.answerCallbackQuery();
   state.waitingInput = 'withdraw_addr';
-  await ctx.reply('
+  await ctx.reply(`
