@@ -1,24 +1,27 @@
 import 'dotenv/config';
 import http from 'http';
 import { Bot, InlineKeyboard } from 'grammy';
-import { Keypair, Connection, PublicKey, SystemProgram, Transaction, LAMPORTS_PER_SOL, sendAndConfirmTransaction } from '@solana/web3.js';
+import solanaWeb3 from '@solana/web3.js';
 import bs58 from 'bs58';
 
-// 1. Render 24/7 Server Keep-Alive
+const { Keypair, Connection, PublicKey, SystemProgram, Transaction, LAMPORTS_PER_SOL, sendAndConfirmTransaction } = solanaWeb3;
+
+// 1. Render Keep-Alive Server
 http.createServer((req, res) => {
   res.writeHead(200, { 'Content-Type': 'text/plain' });
   res.write('PUMP UP Bot Active');
   res.end();
 }).listen(process.env.PORT || 3000);
 
-if (!process.env.BOT_TOKEN) {
-  console.error('❌ BOT_TOKEN mühit dəyişənində tapılmadı!');
-  process.exit(1);
+const token = process.env.BOT_TOKEN;
+if (!token) {
+  console.error('❌ BOT_TOKEN Render Environment Variables bölməsində tapılmadı!');
+  // Crash etməmək üçün prosesi saxlamırıq, xətanı loga yazırıq
 }
 
 const RPC_URL = process.env.HELIUS_RPC_URL || 'https://api.mainnet-beta.solana.com';
 const connection = new Connection(RPC_URL, 'confirmed');
-const bot = new Bot(process.env.BOT_TOKEN);
+const bot = new Bot(token || 'DUMMY_TOKEN');
 
 // 2. Qlobal Vəziyyət (State)
 let state = {
@@ -432,9 +435,14 @@ bot.callbackQuery('confirm_add_target', async (ctx) => {
 
 // Başlanğıc
 async function main() {
+  if (!token) {
+    console.error('⚠️ BOT_TOKEN təyin edilməyib. Bot işə salınmadı.');
+    return;
+  }
   await bot.api.deleteWebhook({ drop_pending_updates: true });
   bot.start();
   console.log('⚡ PUMP UP BOT ENGINE STARTED!');
 }
 
-main();
+main().catch(err => console.error('Main Crash:', err));
+    
