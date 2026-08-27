@@ -16,7 +16,17 @@ if (!token) {
   console.error('⚠️ BOT_TOKEN təyin edilməyib!');
 }
 
-const RPC_URL = process.env.HELIUS_RPC_URL || 'https://api.mainnet-beta.solana.com';
+// 🌐 RPC URL Təhlükəsizlik Və Yoxlanışı (TypeError Verme Qarşısını Alır)
+let rawRpc = (process.env.HELIUS_RPC_URL || '').trim();
+if (rawRpc.startsWith('"') && rawRpc.endsWith('"')) {
+  rawRpc = rawRpc.substring(1, rawRpc.length - 1);
+}
+
+const RPC_URL = (rawRpc.startsWith('http://') || rawRpc.startsWith('https://'))
+  ? rawRpc
+  : 'https://api.mainnet-beta.solana.com';
+
+console.log('🔗 Qoşulan RPC URL:', RPC_URL);
 const connection = new Connection(RPC_URL, 'confirmed');
 const bot = new Bot(token || 'DUMMY_TOKEN');
 
@@ -159,7 +169,6 @@ bot.callbackQuery('set_mode_live', async (ctx) => {
   await ctx.editMessageText(menu.msg, { parse_mode: 'Markdown', reply_markup: menu.kb }).catch(() => {});
 });
 
-// Demo Cüzdan Balansı Artırmaq
 bot.callbackQuery('view_demo_wallet', async (ctx) => {
   await ctx.answerCallbackQuery();
   const kb = new InlineKeyboard()
@@ -174,7 +183,6 @@ bot.callbackQuery('add_demo_sol', async (ctx) => {
   await ctx.reply(`✅ Balans Yeniləndi: **${state.demoBalanceSol.toFixed(4)} SOL**`, { parse_mode: 'Markdown' });
 });
 
-// Live Cüzdanların Yaradılması Və İdarəsi (Max 5)
 bot.callbackQuery('view_live_wallet', async (ctx) => {
   await ctx.answerCallbackQuery();
   await renderLiveWalletsMenu(ctx);
@@ -240,14 +248,12 @@ bot.callbackQuery(/^export_pk_(\d+)$/, async (ctx) => {
   }
 });
 
-// Target Ünvan Əlavə Etmə Və Analiz
 bot.callbackQuery('action_add_target', async (ctx) => {
   await ctx.answerCallbackQuery();
   state.waitingInput = 'target_address';
   await ctx.reply(t('enterTarget'));
 });
 
-// Ünvanlarım Və Silmə Menyusu
 bot.callbackQuery('action_list_targets', async (ctx) => {
   await ctx.answerCallbackQuery();
   if (state.targetWallets.length === 0) return ctx.reply('📋 Hələ heç bir izlənən ünvan əlavə edilməyib.');
@@ -283,7 +289,6 @@ bot.callbackQuery(/^confirm_delete_target_(\d+)$/, async (ctx) => {
   await ctx.reply(`✅ **${removed[0]?.username || 'Ünvan'}** izləmədən silindi!`);
 });
 
-// Settings Və King TP Menyusu
 bot.callbackQuery('view_settings', async (ctx) => {
   await ctx.answerCallbackQuery();
   const s = state.settings;
@@ -308,7 +313,6 @@ bot.callbackQuery('toggle_king_tp', async (ctx) => {
   await ctx.reply(`👑 King TP Status: **${state.settings.kingTp ? 'AKTİV' : 'DEAKTİV'}**`, { parse_mode: 'Markdown' });
 });
 
-// Dil Seçimi
 bot.callbackQuery('view_language', async (ctx) => {
   await ctx.answerCallbackQuery();
   const kb = new InlineKeyboard()
@@ -326,18 +330,15 @@ bot.callbackQuery(/^set_lang_(EN|AZ)$/, async (ctx) => {
   await ctx.reply(menu.msg, { parse_mode: 'Markdown', reply_markup: menu.kb });
 });
 
-// Köçür (Withdraw) Prosesi
 bot.callbackQuery('action_withdraw', async (ctx) => {
   await ctx.answerCallbackQuery();
   state.waitingInput = 'withdraw_addr';
   await ctx.reply('💸 **SOL Köçür**\n\nGöndərmək istədiyiniz Solana cüzdan ünvanını mesaj olaraq yazın:');
 });
 
-// Mətn Qəbulu Və Şəbəkə Əməliyyatları
 bot.on('message:text', async (ctx) => {
   const text = ctx.message.text.trim();
 
-  // Target Ünvanı Doğrulama Və Analiz
   if (state.waitingInput === 'target_address') {
     try {
       new PublicKey(text);
@@ -371,7 +372,6 @@ bot.on('message:text', async (ctx) => {
     }
   }
 
-  // Withdraw Prosesi
   if (state.waitingInput === 'withdraw_addr') {
     try {
       new PublicKey(text);
@@ -442,3 +442,4 @@ async function main() {
 }
 
 main().catch(err => console.error('Main Crash:', err));
+  
