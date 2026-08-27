@@ -1,6 +1,18 @@
-"dependencies": {
-  "@solana/web3.js": "^1.95.0",
-  "bs58": "^5.0.0",
-  "dotenv": "^16.4.5",
-  "grammy": "^1.30.0"
+{
+  "name": "pump-up-bot",
+  "version": "1.0.0",
+  "description": "Solana Copy Trade Bot",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@solana/web3.js": "^1.95.0",
+    "bs58": "5.0.0",
+    "dotenv": "^16.4.5",
+    "grammy": "^1.30.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
 }
