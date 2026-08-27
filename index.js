@@ -1,6 +1,6 @@
 require('dotenv').config();
 const http = require('http');
-const { Bot, InlineKeyboard } = require('grammy');
+const { Bot, InlineKeyboard, GrammyError, HttpError } = require('grammy');
 const { Keypair, Connection, PublicKey, SystemProgram, Transaction, LAMPORTS_PER_SOL, sendAndConfirmTransaction } = require('@solana/web3.js');
 const bs58 = require('bs58');
 
@@ -16,7 +16,7 @@ if (!token) {
   console.error('⚠️ BOT_TOKEN təyin edilməyib!');
 }
 
-// 🌐 RPC URL Təhlükəsizlik Və Yoxlanışı (TypeError Verme Qarşısını Alır)
+// 🌐 RPC URL Təhlükəsizlik Və Yoxlanışı
 let rawRpc = (process.env.HELIUS_RPC_URL || '').trim();
 if (rawRpc.startsWith('"') && rawRpc.endsWith('"')) {
   rawRpc = rawRpc.substring(1, rawRpc.length - 1);
@@ -29,6 +29,20 @@ const RPC_URL = (rawRpc.startsWith('http://') || rawRpc.startsWith('https://'))
 console.log('🔗 Qoşulan RPC URL:', RPC_URL);
 const connection = new Connection(RPC_URL, 'confirmed');
 const bot = new Bot(token || 'DUMMY_TOKEN');
+
+// Grammy Xəta Tutucusu (Error Handling)
+bot.catch((err) => {
+  const ctx = err.ctx;
+  console.error(`⚠️ Update ${ctx.update.update_id} işlənərkən xəta baş verdi:`);
+  const e = err.error;
+  if (e instanceof GrammyError) {
+    console.error("Telegram API Xətası:", e.description);
+  } else if (e instanceof HttpError) {
+    console.error("Şəbəkə Xətası:", e);
+  } else {
+    console.error("Bilinməyən Xəta:", e);
+  }
+});
 
 // 2. Qlobal Vəziyyət (State)
 let state = {
@@ -436,10 +450,15 @@ async function main() {
     console.error('⚠️ BOT_TOKEN təyin edilməyib.');
     return;
   }
-  await bot.api.deleteWebhook({ drop_pending_updates: true });
-  bot.start();
-  console.log('⚡ PUMP UP BOT ENGINE STARTED!');
+  try {
+    await bot.api.deleteWebhook({ drop_pending_updates: true });
+    const me = await bot.api.getMe();
+    console.log(`🤖 BOT DƏQİQ İŞƏ DÜŞDÜ: @${me.username} (ID: ${me.id})`);
+    bot.start();
+    console.log('⚡ PUMP UP BOT ENGINE STARTED!');
+  } catch (err) {
+    console.error('❌ Bot Telegram API-yə qoşula bilmədi:', err.message);
+  }
 }
 
 main().catch(err => console.error('Main Crash:', err));
-  
