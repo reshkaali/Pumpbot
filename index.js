@@ -12,39 +12,117 @@ http.createServer((req, res) => {
 }).listen(process.env.PORT || 3000);
 
 const token = process.env.BOT_TOKEN;
-if (!token) {
-  console.error('⚠️ BOT_TOKEN təyin edilməyib!');
-}
+if (!token) console.error('⚠️ BOT_TOKEN təyin edilməyib!');
 
-// 🌐 RPC URL Təhlükəsizlik Və Yoxlanışı
 let rawRpc = (process.env.HELIUS_RPC_URL || '').trim();
 if (rawRpc.startsWith('"') && rawRpc.endsWith('"')) {
   rawRpc = rawRpc.substring(1, rawRpc.length - 1);
 }
-
 const RPC_URL = (rawRpc.startsWith('http://') || rawRpc.startsWith('https://'))
   ? rawRpc
   : 'https://api.mainnet-beta.solana.com';
 
-console.log('🔗 Qoşulan RPC URL:', RPC_URL);
 const connection = new Connection(RPC_URL, 'confirmed');
 const bot = new Bot(token || 'DUMMY_TOKEN');
 
-// Grammy Xəta Tutucusu (Error Handling)
 bot.catch((err) => {
   const ctx = err.ctx;
-  console.error(`⚠️ Update ${ctx.update.update_id} işlənərkən xəta baş verdi:`);
+  console.error(`⚠️ Update ${ctx.update.update_id} xətası:`);
   const e = err.error;
-  if (e instanceof GrammyError) {
-    console.error("Telegram API Xətası:", e.description);
-  } else if (e instanceof HttpError) {
-    console.error("Şəbəkə Xətası:", e);
-  } else {
-    console.error("Bilinməyən Xəta:", e);
-  }
+  if (e instanceof GrammyError) console.error("Telegram API Xətası:", e.description);
+  else if (e instanceof HttpError) console.error("Şəbəkə Xətası:", e);
+  else console.error("Bilinməyən Xəta:", e);
 });
 
-// 2. Qlobal Vəziyyət (State)
+// 2. Çoxdilli Sözlük (Dictionary)
+const i18n = {
+  EN: {
+    demoBal: "Demo Balance",
+    liveBal: "Live Balance",
+    openPos: "Open Positions",
+    closedPos: "Closed Positions",
+    addTarget: "➕ Add Target Address",
+    myTargets: "📋 My Addresses",
+    demoWalletBtn: "💵 Demo Wallet",
+    liveWalletBtn: "💳 Live Wallet",
+    settingsBtn: "⚙️ Settings",
+    langBtn: "🌐 Language",
+    withdrawBtn: "💸 Transfer",
+    refreshBtn: "🔄 Refresh",
+    enterTargetMsg: "🎯 Please enter the Solana target wallet address to copy-trade:",
+    invalidAddr: "❌ Invalid Solana Address! Try again.",
+    noWallets: "No wallets created yet.",
+    activeLbl: "Active",
+    selectLbl: "Select",
+    minBuyErr: "⚠️ Minimum buy amount must be 0.005 SOL (gas fees included).",
+    enterDemoSol: "💵 Enter the amount of Demo SOL you want to add (e.g. 5.5):"
+  },
+  AZ: {
+    demoBal: "Demo Balansım",
+    liveBal: "Live Balansım",
+    openPos: "Açıq Pozisiyalarım",
+    closedPos: "Qapalı Pozisiyalarım",
+    addTarget: "➕ İzlənəcək Ünvan Əlavə Et",
+    myTargets: "📋 Ünvanlarım",
+    demoWalletBtn: "💵 Demo Cüzdan",
+    liveWalletBtn: "💳 Live Cüzdan",
+    settingsBtn: "⚙️ Tənzimləmələr",
+    langBtn: "🌐 Dil / Language",
+    withdrawBtn: "💸 Köçür",
+    refreshBtn: "🔄 Refresh",
+    enterTargetMsg: "🎯 İzləmək istədiyiniz Pump.fun / Solana cüzdan ünvanını daxil edin:",
+    invalidAddr: "❌ Yanlış Solana Ünvanı! Yenidən cəhd edin.",
+    noWallets: "Hələ ki real cüzdan yaradılmayıb.",
+    activeLbl: "Aktiv",
+    selectLbl: "Seç",
+    minBuyErr: "⚠️ Minimum alış məbləği 0.005 SOL olmalıdır (komissiya daxil).",
+    enterDemoSol: "💵 Əlavə etmək istədiyiniz Demo SOL məbləğini yazın (məs: 5.5):"
+  },
+  TR: {
+    demoBal: "Demo Bakiye",
+    liveBal: "Canlı Bakiye",
+    openPos: "Açık Pozisyonlar",
+    closedPos: "Kapalı Pozisyonlar",
+    addTarget: "➕ Takip Adresi Ekle",
+    myTargets: "📋 Adreslerim",
+    demoWalletBtn: "💵 Demo Cüzdan",
+    liveWalletBtn: "💳 Canlı Cüzdan",
+    settingsBtn: "⚙️ Ayarlar",
+    langBtn: "🌐 Dil Seçimi",
+    withdrawBtn: "💸 Transfer",
+    refreshBtn: "🔄 Yenile",
+    enterTargetMsg: "🎯 Takip etmek istediğiniz Solana cüzdan adresini girin:",
+    invalidAddr: "❌ Geçersiz Solana Adresi! Tekrar deneyin.",
+    noWallets: "Henüz canlı cüzdan oluşturulmadı.",
+    activeLbl: "Aktif",
+    selectLbl: "Seç",
+    minBuyErr: "⚠️ Minimum alım miktarı 0.005 SOL olmalıdır (gas dahil).",
+    enterDemoSol: "💵 Eklemek istediğiniz Demo SOL miktarını yazın:"
+  },
+  RU: {
+    demoBal: "Демо Баланс",
+    liveBal: "Live Баланс",
+    openPos: "Открытые Позиции",
+    closedPos: "Закрытые Позиции",
+    addTarget: "➕ Добавить Адрес",
+    myTargets: "📋 Мои Адреса",
+    demoWalletBtn: "💵 Демо Кошелек",
+    liveWalletBtn: "💳 Live Кошелек",
+    settingsBtn: "⚙️ Настройки",
+    langBtn: "🌐 Выбор Языка",
+    withdrawBtn: "💸 Перевод",
+    refreshBtn: "🔄 Обновить",
+    enterTargetMsg: "🎯 Введите целевой Solana адрес для копи-трейдинга:",
+    invalidAddr: "❌ Неверный адрес Solana! Попробуйте снова.",
+    noWallets: "Живые кошельки еще не созданы.",
+    activeLbl: "Активен",
+    selectLbl: "Выбрать",
+    minBuyErr: "⚠️ Мин. сумма покупки 0.005 SOL (включая комиссию).",
+    enterDemoSol: "💵 Введите сумму Demo SOL для добавления:"
+  }
+};
+
+// 3. Qlobal Vəziyyət (State)
 let state = {
   lang: 'EN',
   mode: 'DEMO',
@@ -53,8 +131,24 @@ let state = {
   activeWalletIndex: 0,
   targetWallets: [],
   pendingTarget: null,
-  openPositions: [],
-  closedPositions: [],
+  openPositions: [
+    {
+      id: 'p1',
+      tokenName: 'PumpCat (PCAT)',
+      address: '7xKXtg2CW87d97TXJSDpbD5jBk49s22P1p5b',
+      img: '🐱',
+      boughtSol: 0.1,
+      pnlUsd: 24.50,
+      pnlPercent: 45.0,
+      pumpFunLink: 'https://pump.fun/7xKXtg2CW87d97TXJSDpbD5jBk49s22P1p5b',
+      marketCap: '$120K',
+      kingTpTriggered: false
+    }
+  ],
+  closedPositions: [
+    { id: 'c1', tokenName: 'SOL Ape (SAPE)', pnlUsd: 15.20, pnlPercent: 30.0 },
+    { id: 'c2', tokenName: 'MoonDog (MDOG)', pnlUsd: -5.40, pnlPercent: -12.0 }
+  ],
   settings: {
     buyAmountSol: 0.05,
     tpPercent: 100,
@@ -65,42 +159,6 @@ let state = {
   },
   waitingInput: null,
   withdrawTemp: {}
-};
-
-// Dil Lugəti
-const i18n = {
-  AZ: {
-    wallet: 'Cüzdan',
-    balance: 'Balansım',
-    positions: 'Pozisiyalarım',
-    addAddress: '➕ Ünvan Əlavə Et',
-    myAddresses: '📋 Ünvanlarım',
-    demoWallet: '💵 Demo Cüzdan',
-    liveWallet: '💳 Live Cüzdan',
-    openPos: '📈 Açıq Pozisiyalar',
-    closedPos: '📉 Qapalı Pozisiyalar',
-    settings: '⚙️ Tənzimləmələr',
-    language: '🌐 Dil / Language',
-    transfer: '💸 Köçür',
-    refresh: '🔄 Yenilə',
-    enterTarget: '🎯 İzləmək istədiyiniz Pump.fun / Solana cüzdan ünvanını daxil edin:'
-  },
-  EN: {
-    wallet: 'Wallet',
-    balance: 'Balance',
-    positions: 'Positions',
-    addAddress: '➕ Add Address',
-    myAddresses: '📋 My Addresses',
-    demoWallet: '💵 Demo Wallet',
-    liveWallet: '💳 Live Wallet',
-    openPos: '📈 Open Positions',
-    closedPos: '📉 Closed Positions',
-    settings: '⚙️ Settings',
-    language: '🌐 Language',
-    transfer: '💸 Transfer',
-    refresh: '🔄 Refresh',
-    enterTarget: '🎯 Send the Solana target wallet address you want to copy-trade:'
-  }
 };
 
 function t(key) {
@@ -117,7 +175,7 @@ async function getRealSolBalance(pubkeyStr) {
   }
 }
 
-// 3. Əsas Menyu Generatoru (HTML Formatında)
+// 4. Əsas Menyu Generatoru (HTML)
 async function buildMainMenu() {
   const isDemo = state.mode === 'DEMO';
   let activeWalletStr = 'DEMO_ACCOUNT';
@@ -133,31 +191,32 @@ async function buildMainMenu() {
 
   const solPriceUsd = 185.0;
   const usdBal = (activeBalSol * solPriceUsd).toFixed(2);
-  const totalOpenSol = state.openPositions.reduce((acc, p) => acc + p.amountSol, 0).toFixed(2);
+  const totalOpenSol = state.openPositions.reduce((acc, p) => acc + p.boughtSol, 0).toFixed(2);
 
-  let msg = `<b>${t('wallet')}:</b> ${activeWalletStr}\n`;
-  msg += `<b>${t('balance')}:</b> ${activeBalSol.toFixed(4)} SOL ($${usdBal})\n`;
-  msg += `<b>${t('positions')}:</b> ${totalOpenSol} SOL\n\n`;
-  msg += `⚡ <b>PUMP UP TERMINAL</b> | Rejim: ${isDemo ? '🟢 Demo' : '🔴 Live Mainnet'}`;
+  let msg = `<b>${t('demoBal')}:</b> ${state.demoBalanceSol.toFixed(2)} SOL\n`;
+  msg += `<b>Live Cüzdan ${isDemo ? '' : (state.activeWalletIndex + 1)}:</b> ${activeWalletStr}\n`;
+  msg += `<b>${t('liveBal')}:</b> ${activeBalSol.toFixed(4)} SOL ($${usdBal})\n`;
+  msg += `<b>${t('openPos')}:</b> ${totalOpenSol} SOL\n\n`;
+  msg += `⚡ <b>PUMP UP COPY-BOT TERMINAL</b>`;
 
   const kb = new InlineKeyboard()
-    .text(t('addAddress'), 'action_add_target')
-    .text(t('myAddresses'), 'action_list_targets').row()
+    .text(t('addTarget'), 'action_add_target')
+    .text(t('myTargets'), 'action_list_targets').row()
     .text(isDemo ? 'Demo 🟢' : 'Demo ⚪', 'set_mode_demo')
     .text(!isDemo ? 'Live 🟢' : 'Live ⚪', 'set_mode_live').row()
-    .text(t('demoWallet'), 'view_demo_wallet')
-    .text(t('liveWallet'), 'view_live_wallet').row()
+    .text(t('demoWalletBtn'), 'view_demo_wallet')
+    .text(t('liveWalletBtn'), 'view_live_wallet').row()
     .text(t('openPos'), 'view_open_pos')
     .text(t('closedPos'), 'view_closed_pos').row()
-    .text(t('settings'), 'view_settings')
-    .text(t('language'), 'view_language').row()
-    .text(t('transfer'), 'action_withdraw')
-    .text(t('refresh'), 'action_refresh');
+    .text(t('settingsBtn'), 'view_settings')
+    .text(t('langBtn'), 'view_language').row()
+    .text(t('withdrawBtn'), 'action_withdraw')
+    .text(t('refreshBtn'), 'action_refresh');
 
   return { msg, kb };
 }
 
-// 4. Hadisələr Və İşləyicilər (Handlers)
+// 5. Bot Əmrləri Və Hadisələr
 bot.command('start', async (ctx) => {
   const menu = await buildMainMenu();
   await ctx.reply(menu.msg, { parse_mode: 'HTML', reply_markup: menu.kb });
@@ -171,32 +230,27 @@ bot.callbackQuery('action_refresh', async (ctx) => {
 
 bot.callbackQuery('set_mode_demo', async (ctx) => {
   state.mode = 'DEMO';
-  await ctx.answerCallbackQuery('Demo Rejimi');
+  await ctx.answerCallbackQuery('Demo Mode Activated');
   const menu = await buildMainMenu();
   await ctx.editMessageText(menu.msg, { parse_mode: 'HTML', reply_markup: menu.kb }).catch(() => {});
 });
 
 bot.callbackQuery('set_mode_live', async (ctx) => {
   state.mode = 'LIVE';
-  await ctx.answerCallbackQuery('Live Rejimi');
+  await ctx.answerCallbackQuery('Live Mainnet Mode Activated');
   const menu = await buildMainMenu();
   await ctx.editMessageText(menu.msg, { parse_mode: 'HTML', reply_markup: menu.kb }).catch(() => {});
 });
 
+// Demo Cüzdan İdarəçiliyi
 bot.callbackQuery('view_demo_wallet', async (ctx) => {
   await ctx.answerCallbackQuery();
-  const kb = new InlineKeyboard()
-    .text('➕ +5 Demo SOL Əlavə Et', 'add_demo_sol').row()
-    .text('⬅️ Menyu', 'action_refresh');
-  await ctx.reply(`💵 <b>Demo Cüzdan Balansı:</b> ${state.demoBalanceSol.toFixed(4)} SOL\n\nBalansı artırmaq üçün aşağıdakı düyməyə sıxın:`, { parse_mode: 'HTML', reply_markup: kb });
+  state.waitingInput = 'add_demo_sol_amount';
+  const kb = new InlineKeyboard().text('⬅️ Menu', 'action_refresh');
+  await ctx.reply(`💵 <b>Demo SOL Balansınız:</b> ${state.demoBalanceSol.toFixed(4)} SOL\n\n${t('enterDemoSol')}`, { parse_mode: 'HTML', reply_markup: kb });
 });
 
-bot.callbackQuery('add_demo_sol', async (ctx) => {
-  state.demoBalanceSol += 5.0;
-  await ctx.answerCallbackQuery('+5 SOL Əlavə Edildi!');
-  await ctx.reply(`✅ Balans Yeniləndi: <b>${state.demoBalanceSol.toFixed(4)} SOL</b>`, { parse_mode: 'HTML' });
-});
-
+// Live Cüzdanlar
 bot.callbackQuery('view_live_wallet', async (ctx) => {
   await ctx.answerCallbackQuery();
   await renderLiveWalletsMenu(ctx);
@@ -207,25 +261,25 @@ async function renderLiveWalletsMenu(ctx) {
   const kb = new InlineKeyboard();
 
   if (state.liveWallets.length === 0) {
-    msg += `Hələ ki real cüzdan yaradılmayıb. Aşağıdakı düyməyə sıxaraq yarada bilərsiniz.\n`;
+    msg += `<i>${t('noWallets')}</i>\n\n`;
   } else {
     for (let i = 0; i < state.liveWallets.length; i++) {
       const w = state.liveWallets[i];
       const bal = await getRealSolBalance(w.publicKey);
-      const isActive = i === state.activeWalletIndex;
+      const isActive = (i === state.activeWalletIndex);
 
       msg += `${isActive ? '🟢' : '⚪'} <b>Cüzdan ${w.id}:</b> <code>${w.publicKey}</code>\n`;
-      msg += `Balans: <b>${bal.toFixed(4)} SOL</b>\n\n`;
+      msg += `Balans: <b>${bal.toFixed(4)} SOL</b>\n`;
+      msg += `🔑 Seed/PK: <code>${w.privateKey}</code>\n\n`;
 
-      kb.text(`Cüzdan ${w.id} ${isActive ? '✅' : 'Seç'}`, `activate_wallet_${i}`)
-        .text(`🔑 Recovery/PK ${w.id}`, `export_pk_${i}`).row();
+      kb.text(`Cüzdan ${w.id} ${isActive ? '✅ (' + t('activeLbl') + ')' : '🔘 ' + t('selectLbl')}`, `activate_wallet_${i}`).row();
     }
   }
 
   if (state.liveWallets.length < 5) {
     kb.text('➕ Real Pulqabı Yarat', 'create_real_wallet').row();
   }
-  kb.text('⬅️ Menyu', 'action_refresh');
+  kb.text('⬅️ Menu', 'action_refresh');
 
   await ctx.reply(msg, { parse_mode: 'HTML', reply_markup: kb });
 }
@@ -242,7 +296,7 @@ bot.callbackQuery('create_real_wallet', async (ctx) => {
   };
 
   state.liveWallets.push(newW);
-  await ctx.reply(`✅ <b>Yeni Live Cüzdan ${newW.id} Yaradıldı!</b>\n\nAdres: <code>${newW.publicKey}</code>\nPrivate Key: <code>${newW.privateKey}</code>`, { parse_mode: 'HTML' });
+  await ctx.reply(`✅ <b>Yeni Live Cüzdan ${newW.id} Yaradıldı!</b>\n\nAdres: <code>${newW.publicKey}</code>\nRecovery Phrase (Base58 Private Key): <code>${newW.privateKey}</code>`, { parse_mode: 'HTML' });
   await renderLiveWalletsMenu(ctx);
 });
 
@@ -253,34 +307,26 @@ bot.callbackQuery(/^activate_wallet_(\d+)$/, async (ctx) => {
   await renderLiveWalletsMenu(ctx);
 });
 
-bot.callbackQuery(/^export_pk_(\d+)$/, async (ctx) => {
-  await ctx.answerCallbackQuery();
-  const idx = parseInt(ctx.match[1]);
-  const w = state.liveWallets[idx];
-  if (w) {
-    await ctx.reply(`🔑 <b>Cüzdan ${w.id} Məxfilik Məlumatları:</b>\n\nPublic Key: <code>${w.publicKey}</code>\nPrivate Key (Base58): <code>${w.privateKey}</code>`, { parse_mode: 'HTML' });
-  }
-});
-
+// Target Əlavə Et / İzləmə
 bot.callbackQuery('action_add_target', async (ctx) => {
   await ctx.answerCallbackQuery();
   state.waitingInput = 'target_address';
-  await ctx.reply(t('enterTarget'));
+  await ctx.reply(t('enterTargetMsg'));
 });
 
 bot.callbackQuery('action_list_targets', async (ctx) => {
   await ctx.answerCallbackQuery();
-  if (state.targetWallets.length === 0) return ctx.reply('📋 Hələ heç bir izlənən ünvan əlavə edilməyib.');
+  if (state.targetWallets.length === 0) return ctx.reply('📋 Hələ heç bir izlənən ünvan təsdiqlənməyib.');
 
   let msg = `📋 <b>İzlənən Pump.fun Ünvanları:</b>\n\n`;
   const kb = new InlineKeyboard();
 
-  state.targetWallets.forEach((tTarget, idx) => {
-    msg += `${idx + 1}. <b>${tTarget.username}</b> (<code>${tTarget.address.substring(0,6)}...</code>)\nQazanc/Zərər: <b>+$${tTarget.pnlUsd}</b>\n\n`;
-    kb.text(`❌ Sil: ${tTarget.username}`, `delete_target_prompt_${idx}`).row();
+  state.targetWallets.forEach((target, idx) => {
+    msg += `${idx + 1}. <b>${target.username}</b>\nPNL: <b>+$${target.pnlUsd} USD</b>\n\n`;
+    kb.text(`❌ (x) ${target.username}`, `delete_target_prompt_${idx}`).row();
   });
 
-  kb.text('⬅️ Menyu', 'action_refresh');
+  kb.text('⬅️ Menu', 'action_refresh');
   await ctx.reply(msg, { parse_mode: 'HTML', reply_markup: kb });
 });
 
@@ -293,7 +339,7 @@ bot.callbackQuery(/^delete_target_prompt_(\d+)$/, async (ctx) => {
     .text('✅ Bəli, Sil', `confirm_delete_target_${idx}`)
     .text('❌ Ləğv Et', 'action_list_targets');
 
-  await ctx.reply(`⚠️ <b>${target.username}</b> ünvanını izləmədən çıxarmaq istədiyinizdən əminsiniz?`, { parse_mode: 'HTML', reply_markup: kb });
+  await ctx.reply(`⚠️ <b>${target.username}</b> ünvanını silmək istədiyinizdən əminsiniz? Həmin cüzdanla əlaqə kəsiləcək.`, { parse_mode: 'HTML', reply_markup: kb });
 });
 
 bot.callbackQuery(/^confirm_delete_target_(\d+)$/, async (ctx) => {
@@ -303,78 +349,175 @@ bot.callbackQuery(/^confirm_delete_target_(\d+)$/, async (ctx) => {
   await ctx.reply(`✅ <b>${removed[0]?.username || 'Ünvan'}</b> izləmədən silindi!`, { parse_mode: 'HTML' });
 });
 
+// Açıq Və Qapalı Pozisiyalar
+bot.callbackQuery('view_open_pos', async (ctx) => {
+  await ctx.answerCallbackQuery();
+  if (state.openPositions.length === 0) return ctx.reply('📈 Açıq pozisiyanız yoxdur.');
+
+  let msg = `📈 <b>Açıq Pozisiyaların Siyahısı:</b>\n\n`;
+  const kb = new InlineKeyboard();
+
+  state.openPositions.forEach((pos, idx) => {
+    msg += `${idx + 1}. ${pos.img} <b>${pos.tokenName}</b> — PNL: <b>+$${pos.pnlUsd} (${pos.pnlPercent}%)</b>\n`;
+    kb.text(`🔍 ${pos.tokenName} Ətraflı`, `open_pos_detail_${idx}`).row();
+  });
+
+  kb.text('⬅️ Menu', 'action_refresh');
+  await ctx.reply(msg, { parse_mode: 'HTML', reply_markup: kb });
+});
+
+bot.callbackQuery(/^open_pos_detail_(\d+)$/, async (ctx) => {
+  await ctx.answerCallbackQuery();
+  const idx = parseInt(ctx.match[1]);
+  const pos = state.openPositions[idx];
+  if (!pos) return;
+
+  let msg = `${pos.img} <b>${pos.tokenName}</b>\n\n`;
+  msg += `<b>Meqalə Adresi:</b> <code>${pos.address}</code>\n`;
+  msg += `<b>Alış Məbləği:</b> ${pos.boughtSol} SOL\n`;
+  msg += `<b>Mövcud PnL:</b> +$${pos.pnlUsd} (${pos.pnlPercent}%)\n`;
+  msg += `<b>Market Cap:</b> ${pos.marketCap}\n`;
+  msg += `<b>Pump.fun Linki:</b> ${pos.pumpFunLink}\n\n`;
+  msg += `King TP Status: ${pos.kingTpTriggered ? '🟢 Çıxarılıb' : '⚪ Gözləyir'}`;
+
+  const kb = new InlineKeyboard()
+    .text('🔴 Əllə Sat (Manual Sell)', `sell_pos_${idx}`).row()
+    .text('⬅️ Pozisiyalar', 'view_open_pos');
+
+  await ctx.reply(msg, { parse_mode: 'HTML', reply_markup: kb });
+});
+
+bot.callbackQuery(/^sell_pos_(\d+)$/, async (ctx) => {
+  await ctx.answerCallbackQuery();
+  const idx = parseInt(ctx.match[1]);
+  const sold = state.openPositions.splice(idx, 1)[0];
+  if (sold) {
+    state.closedPositions.unshift({
+      id: sold.id,
+      tokenName: sold.tokenName,
+      pnlUsd: sold.pnlUsd,
+      pnlPercent: sold.pnlPercent
+    });
+    await ctx.reply(`✅ <b>${sold.tokenName}</b> pozisiyası əllə uğurla satıldı!`, { parse_mode: 'HTML' });
+  }
+});
+
+bot.callbackQuery('view_closed_pos', async (ctx) => {
+  await ctx.answerCallbackQuery();
+  let msg = `📉 <b>Qapalı Pozisiyalar (Son 30 Alqı-Satqı):</b>\n\n`;
+  
+  const last30 = state.closedPositions.slice(0, 30);
+  if (last30.length === 0) msg += `<i>Hələ ki qapalı pozisiya yoxdur.</i>`;
+
+  last30.forEach((p, i) => {
+    msg += `${i + 1}. <b>${p.tokenName}</b> — PNL: <b>${p.pnlUsd >= 0 ? '+' : ''}$${p.pnlUsd} USD (${p.pnlPercent}%)</b>\n`;
+  });
+
+  const kb = new InlineKeyboard().text('⬅️ Menu', 'action_refresh');
+  await ctx.reply(msg, { parse_mode: 'HTML', reply_markup: kb });
+});
+
+// Tənzimləmələr (Settings & King TP)
 bot.callbackQuery('view_settings', async (ctx) => {
   await ctx.answerCallbackQuery();
   const s = state.settings;
-  let msg = `⚙️ <b>PUMP UP | Trading Ayarları:</b>\n\n`;
-  msg += `🔹 <b>Hər Alış Məbləği:</b> ${s.buyAmountSol} SOL\n`;
+  let msg = `⚙️ <b>PUMP UP | Copy-Trade Ayarları:</b>\n\n`;
+  msg += `🔹 <b>Hər Alış Məbləği:</b> ${s.buyAmountSol} SOL <i>(Min: 0.005 SOL gas daxil)</i>\n`;
   msg += `🎯 <b>Take Profit (TP):</b> ${s.tpPercent}%\n`;
   msg += `🛑 <b>Stop Loss (SL):</b> ${s.slPercent}%\n`;
-  msg += `👑 <b>King TP Status:</b> ${s.kingTp ? '🟢 AKTİV (200% artımda maya çıxarılır)' : '⚪ DEAKTİV'}\n`;
+  msg += `👑 <b>King TP:</b> ${s.kingTp ? '🟢 AKTİV (200% artımda maya avtomatik çıxarılır)' : '⚪ DEAKTİV'}\n`;
   msg += `⚡ <b>Priority Fee:</b> ${s.priorityFee} SOL\n`;
   msg += `🔄 <b>Slippage:</b> ${s.slippageBps / 100}%`;
 
   const kb = new InlineKeyboard()
     .text(s.kingTp ? '👑 King TP: Aktiv 🟢' : '👑 King TP: Deaktiv ⚪', 'toggle_king_tp').row()
-    .text('⬅️ Menyu', 'action_refresh');
+    .text('✏️ Alış Məbləğin Dəyiş', 'set_buy_amount').row()
+    .text('⬅️ Menu', 'action_refresh');
 
   await ctx.reply(msg, { parse_mode: 'HTML', reply_markup: kb });
 });
 
 bot.callbackQuery('toggle_king_tp', async (ctx) => {
   state.settings.kingTp = !state.settings.kingTp;
-  await ctx.answerCallbackQuery('King TP dəyişdirildi');
+  await ctx.answerCallbackQuery('King TP statusu dəyişdirildi');
   await ctx.reply(`👑 King TP Status: <b>${state.settings.kingTp ? 'AKTİV' : 'DEAKTİV'}</b>`, { parse_mode: 'HTML' });
 });
 
+bot.callbackQuery('set_buy_amount', async (ctx) => {
+  await ctx.answerCallbackQuery();
+  state.waitingInput = 'change_buy_amount';
+  await ctx.reply('✏️ Hər alqı-satqı üçün qoyulacaq SOL məbləğini yazın (məs: 0.05):');
+});
+
+// Dillər (Language)
 bot.callbackQuery('view_language', async (ctx) => {
   await ctx.answerCallbackQuery();
   const kb = new InlineKeyboard()
     .text('🇬🇧 English', 'set_lang_EN')
     .text('🇦🇿 Azərbaycan', 'set_lang_AZ').row()
-    .text('⬅️ Menyu', 'action_refresh');
+    .text('🇹🇷 Türkçe', 'set_lang_TR')
+    .text('🇷🇺 Русский', 'set_lang_RU').row()
+    .text('⬅️ Menu', 'action_refresh');
   await ctx.reply('🌐 <b>Zəhmət olmasa dili seçin / Select language:</b>', { parse_mode: 'HTML', reply_markup: kb });
 });
 
-bot.callbackQuery(/^set_lang_(EN|AZ)$/, async (ctx) => {
+bot.callbackQuery(/^set_lang_(EN|AZ|TR|RU)$/, async (ctx) => {
   state.lang = ctx.match[1];
   await ctx.answerCallbackQuery(`Language set to ${state.lang}`);
   const menu = await buildMainMenu();
-  await ctx.reply(`✅ Dil dəyişdirildi: <b>${state.lang}</b>`, { parse_mode: 'HTML' });
+  await ctx.reply(`✅ Dil dəyişdirildi / Language changed: <b>${state.lang}</b>`, { parse_mode: 'HTML' });
   await ctx.reply(menu.msg, { parse_mode: 'HTML', reply_markup: menu.kb });
 });
 
+// Real Tranzaksiya / Transfer (Köçür)
 bot.callbackQuery('action_withdraw', async (ctx) => {
   await ctx.answerCallbackQuery();
   state.waitingInput = 'withdraw_addr';
-  await ctx.reply('💸 <b>SOL Köçür</b>\n\nGöndərmək istədiyiniz Solana cüzdan ünvanını mesaj olaraq yazın:', { parse_mode: 'HTML' });
+  await ctx.reply('💸 <b>SOL Transferi</b>\n\nGöndərmək istədiyiniz Solana cüzdan ünvanını daxil edin:', { parse_mode: 'HTML' });
 });
 
+// Mətn Mesajı Dinləyicisi (Inputs)
 bot.on('message:text', async (ctx) => {
   const text = ctx.message.text.trim();
+
+  if (state.waitingInput === 'add_demo_sol_amount') {
+    const amt = parseFloat(text);
+    if (isNaN(amt) || amt <= 0) return ctx.reply('❌ Düzgün məbləğ daxil edin!');
+    state.demoBalanceSol += amt;
+    state.waitingInput = null;
+    return ctx.reply(`✅ <b>Demo Balansınız Yeniləndi:</b> ${state.demoBalanceSol.toFixed(4)} SOL`, { parse_mode: 'HTML' });
+  }
+
+  if (state.waitingInput === 'change_buy_amount') {
+    const amt = parseFloat(text);
+    if (isNaN(amt) || amt < 0.005) return ctx.reply(t('minBuyErr'));
+    state.settings.buyAmountSol = amt;
+    state.waitingInput = null;
+    return ctx.reply(`✅ Hər alış məbləği <b>${amt} SOL</b> olaraq təyin edildi!`, { parse_mode: 'HTML' });
+  }
 
   if (state.waitingInput === 'target_address') {
     try {
       new PublicKey(text);
       state.waitingInput = null;
       
-      const mockUsername = 'pump_trader_' + text.substring(0, 4);
+      const mockUsername = '@pump_trader_' + text.substring(0, 4);
       const isLowRisk = text.length % 2 === 0;
-      
+
       state.pendingTarget = {
         address: text,
         username: mockUsername,
-        winRate: isLowRisk ? '78%' : '42%',
-        riskLevel: isLowRisk ? '🟢 Aşağı Risk' : '🔴 Yüksək Risk (Rugpull ehtimalı)',
-        pnlUsd: '450.00'
+        winRate: isLowRisk ? '82%' : '35%',
+        riskLevel: isLowRisk ? '🟢 LOW RISK (Risksiz)' : '🔴 HIGH RISK (Rugpull riskli!)',
+        pnlUsd: '540.00'
       };
 
       const msg = `👤 <b>Pump.fun Profil Analizi:</b>\n\n` +
         `Username: <b>${state.pendingTarget.username}</b>\n` +
         `Ünvan: <code>${text}</code>\n` +
-        `Qazanma Nisbəti (Winrate): <b>${state.pendingTarget.winRate}</b>\n` +
-        `Risk Qiymətləndirilməsi: <b>${state.pendingTarget.riskLevel}</b>\n\n` +
-        `Bu ünvanın alqı-satqılarını avtomatik kopyalamaq istəyirsiniz?`;
+        `Qazanma Nisbəti: <b>${state.pendingTarget.winRate}</b>\n` +
+        `Risk Statusu: <b>${state.pendingTarget.riskLevel}</b>\n\n` +
+        `Bu ünvanı təsdiqləyib izləmə siyahısına əlavə etmək istəyirsiniz?`;
 
       const kb = new InlineKeyboard()
         .text('✅ Təsdiqlə', 'confirm_add_target')
@@ -382,7 +525,7 @@ bot.on('message:text', async (ctx) => {
 
       return ctx.reply(msg, { parse_mode: 'HTML', reply_markup: kb });
     } catch (e) {
-      return ctx.reply('❌ Keçərsiz Solana ünvanı! Lütfən düzgün formatda daxil edin.');
+      return ctx.reply(t('invalidAddr'));
     }
   }
 
@@ -391,75 +534,4 @@ bot.on('message:text', async (ctx) => {
       new PublicKey(text);
       state.withdrawTemp.toAddress = text;
       state.waitingInput = 'withdraw_amount';
-      return ctx.reply('Göndərmək istədiyiniz SOL məbləğini yazın (Min: 0.001 SOL):');
-    } catch (e) {
-      return ctx.reply('❌ Keçərsiz Solana ünvanı!');
-    }
-  }
-
-  if (state.waitingInput === 'withdraw_amount') {
-    const amountSol = parseFloat(text);
-    if (isNaN(amountSol) || amountSol < 0.001) return ctx.reply('❌ Keçərsiz məbləğ!');
-
-    const activeW = state.liveWallets[state.activeWalletIndex];
-    if (!activeW) return ctx.reply('❌ Aktiv live cüzdan tapılmadı!');
-
-    const realBal = await getRealSolBalance(activeW.publicKey);
-    if (realBal < amountSol + 0.000005) {
-      state.waitingInput = null;
-      return ctx.reply(`❌ Balansda kifayət qədər SOL yoxdur!\nMövcud Balans: ${realBal.toFixed(4)} SOL`);
-    }
-
-    const targetAddr = state.withdrawTemp.toAddress;
-    state.waitingInput = null;
-    await ctx.reply('⏳ <b>Tranzaksiya Solana şəbəkəsinə göndərilir...</b>', { parse_mode: 'HTML' });
-
-    try {
-      const senderKp = Keypair.fromSecretKey(bs58.decode(activeW.privateKey));
-      const tx = new Transaction().add(
-        SystemProgram.transfer({
-          fromPubkey: senderKp.publicKey,
-          toPubkey: new PublicKey(targetAddr),
-          lamports: Math.floor(amountSol * LAMPORTS_PER_SOL)
-        })
-      );
-
-      const signature = await sendAndConfirmTransaction(connection, tx, [senderKp]);
-      return ctx.reply(`🚀 <b>REAL SOL TRANZAKSİYASI UĞURLA BAŞA ÇATDI!</b>\n\n` +
-        `Məbləğ: <b>${amountSol} SOL</b>\n` +
-        `Ünvan: <code>${targetAddr}</code>\n\n` +
-        `🔗 <b>Solscan Explorer:</b> https://solscan.io/tx/${signature}`, { parse_mode: 'HTML' });
-    } catch (err) {
-      return ctx.reply(`❌ Tranzaksiya Xətası: ${err.message}`);
-    }
-  }
-});
-
-bot.callbackQuery('confirm_add_target', async (ctx) => {
-  await ctx.answerCallbackQuery();
-  if (state.pendingTarget) {
-    state.targetWallets.push(state.pendingTarget);
-    await ctx.reply(`✅ <b>${state.pendingTarget.username}</b> uğurla izlənilən cüzdanlar siyahısına əlavə edildi!`, { parse_mode: 'HTML' });
-    state.pendingTarget = null;
-  }
-});
-
-// Başlanğıc
-async function main() {
-  if (!token) {
-    console.error('⚠️ BOT_TOKEN təyin edilməyib.');
-    return;
-  }
-  try {
-    await bot.api.deleteWebhook({ drop_pending_updates: true });
-    const me = await bot.api.getMe();
-    console.log(`🤖 BOT DƏQİQ İŞƏ DÜŞDÜ: @${me.username} (ID: ${me.id})`);
-    bot.start();
-    console.log('⚡ PUMP UP BOT ENGINE STARTED!');
-  } catch (err) {
-    console.error('❌ Bot Telegram API-yə qoşula bilmədi:', err.message);
-  }
-}
-
-main().catch(err => console.error('Main Crash:', err));
-                                  
+      return ctx.reply('Göndərmək istədiyini
