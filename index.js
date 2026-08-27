@@ -1,193 +1,118 @@
-require('dotenv').config();
-const http = require('http');
-const { Bot, InlineKeyboard, GrammyError, HttpError } = require('grammy');
-const { Keypair, Connection, PublicKey, LAMPORTS_PER_SOL } = require('@solana/web3.js');
+import express from "express";
+import dotenv from "dotenv";
+import TelegramBot from "node-telegram-bot-api";
+import axios from "axios";
 
-http.createServer((req, res) => {
-  res.writeHead(200, { 'Content-Type': 'text/plain' });
-  res.write('PUMP UP Bot Active');
-  res.end();
-}).listen(process.env.PORT || 3000);
+dotenv.config();
 
-const token = process.env.BOT_TOKEN;
+const {
+  BOT_TOKEN,
+  BASE_URL,
+  PORT = 10000,
+  WEBHOOK_SECRET,
+  HELIUS_API_KEY
+} = process.env;
 
-let rawRpc = (process.env.HELIUS_RPC_URL || '').trim();
-if (rawRpc.startsWith('"') && rawRpc.endsWith('"')) {
-  rawRpc = rawRpc.substring(1, rawRpc.length - 1);
-}
-const RPC_URL = (rawRpc.startsWith('http://') || rawRpc.startsWith('https://'))
-  ? rawRpc
-  : 'https://api.mainnet-beta.solana.com';
+if (!BOT_TOKEN) throw new Error("BOT_TOKEN is required");
+if (!BASE_URL) throw new Error("BASE_URL is required");
 
-const connection = new Connection(RPC_URL, 'confirmed');
-const bot = new Bot(token || 'DUMMY_TOKEN');
+const app = express();
+app.use(express.json());
 
-bot.catch((err) => {
-  const ctx = err.ctx;
-  console.error(`Update xətası:`);
-  const e = err.error;
-  if (e instanceof GrammyError) console.error("Telegram API Xətası:", e.description);
-  else if (e instanceof HttpError) console.error("Şəbəkə Xətası:", e);
-  else console.error("Bilinməyən Xəta:", e);
-});
+const bot = new TelegramBot(BOT_TOKEN, { polling: false });
 
-const ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
-function encodeBase58(buffer) {
-  let digits = [0];
-  for (let i = 0; i < buffer.length; i++) {
-    for (let j = 0; j < digits.length; j++) digits[j] <<= 8;
-    digits[0] += buffer[i];
-    let carry = 0;
-    for (let j = 0; j < digits.length; j++) {
-      digits[j] += carry;
-      carry = (digits[j] / 58) | 0;
-      digits[j] %= 58;
-    }
-    while (carry) {
-      digits.push(carry % 58);
-      carry = (carry / 58) | 0;
-    }
-  }
-  for (let i = 0; buffer[i] === 0 && i < buffer.length - 1; i++) digits.push(0);
-  return digits.reverse().map(d => ALPHABET[d]).join('');
-}
-
-const i18n = {
-  AZ: {
-    demoBal: "Demo Balansım",
-    liveBal: "Live Balansım",
-    openPos: "Açıq Pozisiyalarım",
-    closedPos: "Qapalı Pozisiyalarım",
-    addTarget: "➕ İzlənəcək Ünvan Əlavə Et",
-    myTargets: "📋 Ünvanlarım",
-    demoWalletBtn: "💵 Demo Cüzdan",
-    liveWalletBtn: "💳 Live Cüzdan",
-    settingsBtn: "⚙️ Tənzimləmələr",
-    langBtn: "🌐 Dil / Language",
-    withdrawBtn: "💸 Köçür",
-    refreshBtn: "🔄 Refresh",
-    enterTargetMsg: "🎯 İzləmək istədiyiniz Pump.fun / Solana cüzdan ünvanını daxil edin:",
-    invalidAddr: "❌ Yanlış Solana Ünvanı! Yenidən cəhd edin.",
-    noWallets: "Hələ ki real cüzdan yaradılmayıb.",
-    activeLbl: "Aktiv",
-    selectLbl: "Seç",
-    minBuyErr: "⚠️ Minimum alış məbləği 0.005 SOL olmalıdır.",
-    enterDemoSol: "💵 Əlavə etmək istədiyiniz Demo SOL məbləğini yazın:"
-  }
-};
-
-let state = {
-  lang: 'AZ',
-  mode: 'DEMO',
-  demoBalanceSol: 10.0,
-  liveWallets: [],
-  activeWalletIndex: 0,
-  targetWallets: [],
-  pendingTarget: null,
-  openPositions: [],
-  closedPositions: [],
-  settings: {
-    buyAmountSol: 0.05,
-    tpPercent: 100,
-    tpEnabled: true,
-    slPercent: 30,
-    slEnabled: true,
-    kingTp: true,
-    slippageBps: 200,
-    priorityFee: 0.001
+const texts = {
+  en: {
+    start: "Welcome. Choose an option.",
+    menu: "Main menu"
   },
-  waitingInput: null,
-  withdrawTemp: {}
+  az: {
+    start: "Xoş gəldin. Bir seçim et.",
+    menu: "Əsas menyu"
+  },
+  ru: {
+    start: "Добро пожаловать. Выберите опцию.",
+    menu: "Главное меню"
+  },
+  tr: {
+    start: "Hoş geldin. Bir seçenek seç.",
+    menu: "Ana menü"
+  }
 };
 
-function t(key) {
-  return i18n['AZ'][key];
+function getLang(userId) {
+  return "en";
 }
 
-async function getRealSolBalance(pubkeyStr) {
+function mainMenuKeyboard() {
+  return {
+    inline_keyboard: [
+      [{ text: "İzlənəcək Ünvan Əlavə Et", callback_data: "add_address" }],
+      [{ text: "Ünvanlarım", callback_data: "my_addresses" }],
+      [{ text: "Demo 🟢 • Live 🟢", callback_data: "mode_toggle" }],
+      [{ text: "Demo cüzdan • Live cüzdan", callback_data: "wallets" }],
+      [{ text: "Açıq Pozisyonlar • Qapalı Pozisyonlar", callback_data: "positions" }],
+      [{ text: "Settings • Language", callback_data: "settings_lang" }],
+      [{ text: "Köçür • Refresh", callback_data: "transfer_refresh" }]
+    ]
+  };
+}
+
+bot.onText(//start/, async (msg) => {
+  const chatId = msg.chat.id;
+  const lang = getLang(msg.from.id);
+  await bot.sendMessage(chatId, texts[lang].start, {
+    reply_markup: mainMenuKeyboard()
+  });
+});
+
+bot.on("callback_query", async (query) => {
+  const chatId = query.message.chat.id;
+  const data = query.data;
+
   try {
-    const pubkey = new PublicKey(pubkeyStr);
-    const balanceLamports = await connection.getBalance(pubkey);
-    return balanceLamports / LAMPORTS_PER_SOL;
-  } catch (e) {
-    return 0;
-  }
-}
-
-async function buildMainMenu() {
-  const isDemo = state.mode === 'DEMO';
-  let activeWalletStr = 'DEMO_ACCOUNT';
-  let activeBalSol = state.demoBalanceSol;
-
-  if (!isDemo && state.liveWallets.length > 0) {
-    const w = state.liveWallets[state.activeWalletIndex];
-    if (w) {
-      activeWalletStr = `Cüzdan ${w.id}: ${w.publicKey}`;
-      activeBalSol = await getRealSolBalance(w.publicKey);
+    if (data === "add_address") {
+      await bot.sendMessage(chatId, "Ünvanı daxil et:");
+    } else if (data === "my_addresses") {
+      await bot.sendMessage(chatId, "Təsdiqlənmiş ünvanlar siyahısı gələcək.");
+    } else if (data === "mode_toggle") {
+      await bot.sendMessage(chatId, "Demo / Live seçim məntiqi əlavə olunacaq.");
+    } else if (data === "wallets") {
+      await bot.sendMessage(chatId, "Demo və Live cüzdan ekranı hazırlanacaq.");
+    } else if (data === "positions") {
+      await bot.sendMessage(chatId, "Açıq və qapalı pozisyonlar ekranı hazırlanacaq.");
+    } else if (data === "settings_lang") {
+      await bot.sendMessage(chatId, "Settings və dil seçimi ekranı hazırlanacaq.");
+    } else if (data === "transfer_refresh") {
+      await bot.sendMessage(chatId, "Köçürmə və refresh funksiyaları hazırlanacaq.");
     }
-  }
 
-  let msg = `<b>Demo Balans:</b> ${state.demoBalanceSol.toFixed(2)} SOL\n`;
-  msg += `<b>Live Balans:</b> ${activeBalSol.toFixed(4)} SOL\n\n`;
-  msg += `<b>PUMP UP BOT TERMINAL</b>`;
-
-  const kb = new InlineKeyboard()
-    .text(t('addTarget'), 'action_add_target').row()
-    .text(t('demoWalletBtn'), 'view_demo_wallet')
-    .text(t('liveWalletBtn'), 'view_live_wallet').row()
-    .text(t('refreshBtn'), 'action_refresh');
-
-  return { msg, kb };
-}
-
-bot.command('start', async (ctx) => {
-  const menu = await buildMainMenu();
-  await ctx.reply(menu.msg, { parse_mode: 'HTML', reply_markup: menu.kb });
-});
-
-bot.callbackQuery('action_refresh', async (ctx) => {
-  await ctx.answerCallbackQuery();
-  const menu = await buildMainMenu();
-  await ctx.editMessageText(menu.msg, { parse_mode: 'HTML', reply_markup: menu.kb }).catch(() => {});
-});
-
-bot.callbackQuery('view_demo_wallet', async (ctx) => {
-  await ctx.answerCallbackQuery();
-  await ctx.reply(`💵 Demo Balansınız: ${state.demoBalanceSol.toFixed(4)} SOL`);
-});
-
-bot.callbackQuery('view_live_wallet', async (ctx) => {
-  await ctx.answerCallbackQuery();
-  await ctx.reply(`💳 Live Cüzdan menyusu aktivdir.`);
-});
-
-bot.callbackQuery('action_add_target', async (ctx) => {
-  await ctx.answerCallbackQuery();
-  state.waitingInput = 'target_address';
-  await ctx.reply(t('enterTargetMsg'));
-});
-
-bot.on('message:text', async (ctx) => {
-  const text = ctx.message.text.trim();
-  if (state.waitingInput === 'target_address') {
-    try {
-      new PublicKey(text);
-      state.waitingInput = null;
-      await ctx.reply(`✅ Ünvan qəbul edildi: ${text}`);
-    } catch (e) {
-      await ctx.reply(t('invalidAddr'));
-    }
+    await bot.answerCallbackQuery(query.id);
+  } catch (err) {
+    await bot.answerCallbackQuery(query.id, { text: "Xəta baş verdi" });
   }
 });
 
-async function main() {
-  if (!token) {
-    console.error('BOT_TOKEN tapılmadı.');
-    return;
+app.post("/webhook/helius", async (req, res) => {
+  const secret = req.headers["x-webhook-secret"];
+  if (WEBHOOK_SECRET && secret !== WEBHOOK_SECRET) {
+    return res.status(401).send("Unauthorized");
   }
-  await bot.api.deleteWebhook({ drop_pending_updates: true });
-  bot.start();
-  console.log('BOT UĞURLA İŞƏ DÜŞDÜ!');
-}
 
-main().catch(err => console.error(err));
+  const event = req.body;
+  console.log("Helius event:", JSON.stringify(event));
+
+  res.status(200).send("ok");
+});
+
+app.get("/health", (req, res) => {
+  res.status(200).json({ ok: true });
+});
+
+app.get("/", (req, res) => {
+  res.status(200).send("Bot is running");
+});
+
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
