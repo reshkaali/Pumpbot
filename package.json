@@ -1,25 +1,7 @@
 {
-  "name": "solana-copytrade-telegram-bot",
-  "version": "1.0.0",
-  "description": "Telegram bot for Solana copy trading with demo/live wallets, multilingual support, and Helius webhooks.",
-  "main": "index.js",
   "type": "module",
   "scripts": {
     "start": "node index.js",
-    "dev": "nodemon index.js",
-    "lint": "eslint ."
-  },
-  "engines": {
-    "node": ">=20"
-  },
-  "dependencies": {
-    "axios": "^1.11.0",
-    "dotenv": "^17.2.1",
-    "express": "^4.21.2",
-    "node-telegram-bot-api": "^0.66.0"
-  },
-  "devDependencies": {
-    "eslint": "^9.33.0",
-    "nodemon": "^3.1.10"
+    "dev": "nodemon index.js"
   }
 }
