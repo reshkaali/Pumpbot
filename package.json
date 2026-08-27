@@ -1,20 +1,6 @@
-{
-  "name": "pump-bot",
-  "version": "1.0.0",
-  "main": "index.js",
-  "scripts": {
-    "start": "node index.js"
-  },
-  "dependencies": {
-    "@solana/web3.js": "^1.95.3",
-    "bs58": "^5.0.0",
-    "dotenv": "^16.4.5",
-    "grammy": "^1.21.0"
-  },
-  "overrides": {
-    "uuid": "^8.3.2"
-  },
-  "engines": {
-    "node": ">=18.0.0"
-  }
+"dependencies": {
+  "@solana/web3.js": "^1.95.0",
+  "bs58": "^5.0.0",
+  "dotenv": "^16.4.5",
+  "grammy": "^1.30.0"
 }
