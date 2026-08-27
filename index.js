@@ -1,9 +1,8 @@
-require('dotenv').config();
-const http = require('http');
-const { Bot, InlineKeyboard } = require('grammy');
-const { Keypair, Connection, PublicKey, SystemProgram, Transaction, LAMPORTS_PER_SOL, sendAndConfirmTransaction } = require('@solana/web3.js');
-const bs58Import = require('bs58');
-const bs58 = bs58Import.default || bs58Import;
+import 'dotenv/config';
+import http from 'http';
+import { Bot, InlineKeyboard } from 'grammy';
+import { Keypair, Connection, PublicKey, SystemProgram, Transaction, LAMPORTS_PER_SOL, sendAndConfirmTransaction } from '@solana/web3.js';
+import bs58 from 'bs58';
 
 // 1. Render 24/7 Server Keep-Alive
 http.createServer((req, res) => {
