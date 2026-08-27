@@ -6,15 +6,13 @@
     "start": "node index.js"
   },
   "dependencies": {
-    "@solana/web3.js": "1.91.0",
-    "bs58": "4.0.1",
+    "@solana/web3.js": "^1.95.3",
+    "bs58": "^4.0.1",
     "dotenv": "^16.4.5",
-    "grammy": "^1.21.0"
-  },
-  "overrides": {
-    "uuid": "8.3.2"
+    "grammy": "^1.21.0",
+    "rpc-websockets": "^7.11.0"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=22.0.0"
   }
 }
