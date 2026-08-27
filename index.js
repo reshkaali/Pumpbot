@@ -4,12 +4,10 @@ import TelegramBot from "node-telegram-bot-api";
 
 dotenv.config();
 
-const {
-  BOT_TOKEN,
-  BASE_URL,
-  PORT = 10000,
-  WEBHOOK_SECRET
-} = process.env;
+const BOT_TOKEN = process.env.BOT_TOKEN;
+const BASE_URL = process.env.BASE_URL;
+const PORT = process.env.PORT || 10000;
+const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET;
 
 if (!BOT_TOKEN) throw new Error("BOT_TOKEN is required");
 if (!BASE_URL) throw new Error("BASE_URL is required");
@@ -19,7 +17,7 @@ app.use(express.json());
 
 const bot = new TelegramBot(BOT_TOKEN, { polling: false });
 
-const mainMenuKeyboard = {
+const menu = {
   inline_keyboard: [
     [{ text: "İzlənəcək Ünvan Əlavə Et", callback_data: "add_address" }],
     [{ text: "Ünvanlarım", callback_data: "my_addresses" }],
@@ -34,13 +32,15 @@ const mainMenuKeyboard = {
 bot.onText(//start/, async (msg) => {
   const chatId = msg.chat.id;
   await bot.sendMessage(chatId, "Welcome. Choose an option.", {
-    reply_markup: mainMenuKeyboard
+    reply_markup: menu
   });
 });
 
 bot.on("callback_query", async (query) => {
-  const chatId = query.message.chat.id;
+  const chatId = query.message?.chat?.id;
   const data = query.data;
+
+  if (!chatId) return;
 
   if (data === "add_address") {
     await bot.sendMessage(chatId, "Ünvanı daxil et:");
@@ -63,6 +63,7 @@ bot.on("callback_query", async (query) => {
 
 app.post("/webhook/helius", (req, res) => {
   const secret = req.headers["x-webhook-secret"];
+
   if (WEBHOOK_SECRET && secret !== WEBHOOK_SECRET) {
     return res.status(401).send("Unauthorized");
   }
