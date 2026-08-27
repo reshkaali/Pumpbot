@@ -1,10 +1,8 @@
-import 'dotenv/config';
-import http from 'http';
-import { Bot, InlineKeyboard } from 'grammy';
-import solanaWeb3 from '@solana/web3.js';
-import bs58 from 'bs58';
-
-const { Keypair, Connection, PublicKey, SystemProgram, Transaction, LAMPORTS_PER_SOL, sendAndConfirmTransaction } = solanaWeb3;
+require('dotenv').config();
+const http = require('http');
+const { Bot, InlineKeyboard } = require('grammy');
+const { Keypair, Connection, PublicKey, SystemProgram, Transaction, LAMPORTS_PER_SOL, sendAndConfirmTransaction } = require('@solana/web3.js');
+const bs58 = require('bs58');
 
 // 1. Render Keep-Alive Server
 http.createServer((req, res) => {
@@ -15,8 +13,7 @@ http.createServer((req, res) => {
 
 const token = process.env.BOT_TOKEN;
 if (!token) {
-  console.error('❌ BOT_TOKEN Render Environment Variables bölməsində tapılmadı!');
-  // Crash etməmək üçün prosesi saxlamırıq, xətanı loga yazırıq
+  console.error('⚠️ BOT_TOKEN təyin edilməyib!');
 }
 
 const RPC_URL = process.env.HELIUS_RPC_URL || 'https://api.mainnet-beta.solana.com';
@@ -436,7 +433,7 @@ bot.callbackQuery('confirm_add_target', async (ctx) => {
 // Başlanğıc
 async function main() {
   if (!token) {
-    console.error('⚠️ BOT_TOKEN təyin edilməyib. Bot işə salınmadı.');
+    console.error('⚠️ BOT_TOKEN təyin edilməyib.');
     return;
   }
   await bot.api.deleteWebhook({ drop_pending_updates: true });
@@ -445,4 +442,3 @@ async function main() {
 }
 
 main().catch(err => console.error('Main Crash:', err));
-    
