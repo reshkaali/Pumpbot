@@ -1,7 +1,7 @@
 require('dotenv').config();
 const http = require('http');
 const { Bot, InlineKeyboard, GrammyError, HttpError } = require('grammy');
-const { Keypair, Connection, PublicKey, SystemProgram, Transaction, LAMPORTS_PER_SOL, sendAndConfirmTransaction } = require('@solana/web3.js');
+const { Keypair, Connection, PublicKey, LAMPORTS_PER_SOL } = require('@solana/web3.js');
 
 // 1. Render Keep-Alive Server
 http.createServer((req, res) => {
@@ -32,7 +32,7 @@ bot.catch((err) => {
   else console.error("Bilinməyən Xəta:", e);
 });
 
-// Helper: Base58 encoder/decoder (bs58 asılılığını aradan qaldırmaq üçün)
+// Helper: Base58 encoder (bs58 asılılığını aradan qaldırmaq üçün)
 const ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
 function encodeBase58(buffer) {
   let digits = [0];
@@ -144,7 +144,7 @@ const i18n = {
 
 // 3. Qlobal Vəziyyət (State)
 let state = {
-  lang: 'EN',
+  lang: 'AZ',
   mode: 'DEMO',
   demoBalanceSol: 10.0,
   liveWallets: [],
@@ -172,7 +172,9 @@ let state = {
   settings: {
     buyAmountSol: 0.05,
     tpPercent: 100,
+    tpEnabled: true,
     slPercent: 30,
+    slEnabled: true,
     kingTp: true,
     slippageBps: 200,
     priorityFee: 0.001
@@ -182,7 +184,7 @@ let state = {
 };
 
 function t(key) {
-  return i18n[state.lang][key] || i18n['EN'][key];
+  return i18n[state.lang][key] || i18n['AZ'][key];
 }
 
 async function getRealSolBalance(pubkeyStr) {
@@ -195,7 +197,7 @@ async function getRealSolBalance(pubkeyStr) {
   }
 }
 
-// 4. Əsas Menyu Generatoru (HTML)
+// 4. Əsas Menyu Generatoru
 async function buildMainMenu() {
   const isDemo = state.mode === 'DEMO';
   let activeWalletStr = 'DEMO_ACCOUNT';
@@ -288,7 +290,7 @@ async function renderLiveWalletsMenu(ctx) {
 
       msg += `${isActive ? '🟢' : '⚪'} <b>Cüzdan ${w.id}:</b> <code>${w.publicKey}</code>\n`;
       msg += `Balans: <b>${bal.toFixed(4)} SOL</b>\n`;
-      msg += `🔑 Seed/PK: <code>${w.privateKey}</code>\n\n`;
+      msg += `🔑 Private Key: <code>${w.privateKey}</code>\n\n`;
 
       kb.text(`Cüzdan ${w.id} ${isActive ? '✅ (' + t('activeLbl') + ')' : '🔘 ' + t('selectLbl')}`, `activate_wallet_${i}`).row();
     }
@@ -314,7 +316,7 @@ bot.callbackQuery('create_real_wallet', async (ctx) => {
   };
 
   state.liveWallets.push(newW);
-  await ctx.reply(`✅ <b>Yeni Live Cüzdan ${newW.id} Yaradıldı!</b>\n\nAdres: <code>${newW.publicKey}</code>\nRecovery Phrase (Base58 Private Key): <code>${newW.privateKey}</code>`, { parse_mode: 'HTML' });
+  await ctx.reply(`✅ <b>Yeni Live Cüzdan ${newW.id} Yaradıldı!</b>\n\nAdres: <code>${newW.publicKey}</code>\nPrivate Key: <code>${newW.privateKey}</code>`, { parse_mode: 'HTML' });
   await renderLiveWalletsMenu(ctx);
 });
 
@@ -356,7 +358,7 @@ bot.callbackQuery(/^delete_target_prompt_(\d+)$/, async (ctx) => {
     .text('✅ Bəli, Sil', `confirm_delete_target_${idx}`)
     .text('❌ Ləğv Et', 'action_list_targets');
 
-  await ctx.reply(`⚠️ <b>${target.username}</b> ünvanını silmək istədiyinizdən əminsiniz? Həmin cüzdanla əlaqə kəsiləcək.`, { parse_mode: 'HTML', reply_markup: kb });
+  await ctx.reply(`⚠️ <b>${target.username}</b> ünvanını silmək istədiyinizdən əminsiniz?`, { parse_mode: 'HTML', reply_markup: kb });
 });
 
 bot.callbackQuery(/^confirm_delete_target_(\d+)$/, async (ctx) => {
@@ -433,35 +435,86 @@ bot.callbackQuery('view_closed_pos', async (ctx) => {
   await ctx.reply(msg, { parse_mode: 'HTML', reply_markup: kb });
 });
 
-bot.callbackQuery('view_settings', async (ctx) => {
-  await ctx.answerCallbackQuery();
+// TƏNZİMLƏMƏLƏR MENYUSU
+async function renderSettingsMenu(ctx) {
   const s = state.settings;
   let msg = `⚙️ <b>PUMP UP | Copy-Trade Ayarları:</b>\n\n`;
-  msg += `🔹 <b>Hər Alış Məbləği:</b> ${s.buyAmountSol} SOL <i>(Min: 0.005 SOL gas daxil)</i>\n`;
-  msg += `🎯 <b>Take Profit (TP):</b> ${s.tpPercent}%\n`;
-  msg += `🛑 <b>Stop Loss (SL):</b> ${s.slPercent}%\n`;
-  msg += `👑 <b>King TP:</b> ${s.kingTp ? '🟢 AKTİV (200% artımda maya avtomatik çıxarılır)' : '⚪ DEAKTİV'}\n`;
+  msg += `🔹 <b>Hər Alış Məbləği:</b> ${s.buyAmountSol} SOL\n`;
+  msg += `🎯 <b>Take Profit (TP):</b> ${s.tpEnabled ? s.tpPercent + '%' : '🔴 DEAKTİV (OFF)'}\n`;
+  msg += `🛑 <b>Stop Loss (SL):</b> ${s.slEnabled ? s.slPercent + '%' : '🔴 DEAKTİV (OFF)'}\n`;
+  msg += `👑 <b>King TP:</b> ${s.kingTp ? '🟢 AKTİV' : '🔴 DEAKTİV'}\n`;
   msg += `⚡ <b>Priority Fee:</b> ${s.priorityFee} SOL\n`;
-  msg += `🔄 <b>Slippage:</b> ${s.slippageBps / 100}%`;
+  msg += `🔄 <b>Slippage:</b> ${s.slippageBps / 100}%\n`;
 
   const kb = new InlineKeyboard()
-    .text(s.kingTp ? '👑 King TP: Aktiv 🟢' : '👑 King TP: Deaktiv ⚪', 'toggle_king_tp').row()
-    .text('✏️ Alış Məbləğin Dəyiş', 'set_buy_amount').row()
+    .text(`✏️ Alış Məbləği: ${s.buyAmountSol} SOL`, 'set_buy_amount').row()
+    .text(s.tpEnabled ? `🎯 TP: ${s.tpPercent}% 🟢` : '🎯 TP: DEAKTİV 🔴', 'toggle_tp')
+    .text('✏️ TP Faiz', 'set_tp_val').row()
+    .text(s.slEnabled ? `🛑 SL: ${s.slPercent}% 🟢` : '🛑 SL: DEAKTİV 🔴', 'toggle_sl')
+    .text('✏️ SL Faiz', 'set_sl_val').row()
+    .text(s.kingTp ? '👑 King TP: Aktiv 🟢' : '👑 King TP: Deaktiv 🔴', 'toggle_king_tp').row()
+    .text(`⚡ Priority Fee: ${s.priorityFee} SOL`, 'set_prio_fee')
+    .text(`🔄 Slippage: ${s.slippageBps / 100}%`, 'set_slippage').row()
     .text('⬅️ Menu', 'action_refresh');
 
-  await ctx.reply(msg, { parse_mode: 'HTML', reply_markup: kb });
+  if (ctx.callbackQuery) {
+    await ctx.editMessageText(msg, { parse_mode: 'HTML', reply_markup: kb }).catch(() => ctx.reply(msg, { parse_mode: 'HTML', reply_markup: kb }));
+  } else {
+    await ctx.reply(msg, { parse_mode: 'HTML', reply_markup: kb });
+  }
+}
+
+bot.callbackQuery('view_settings', async (ctx) => {
+  await ctx.answerCallbackQuery();
+  await renderSettingsMenu(ctx);
+});
+
+bot.callbackQuery('toggle_tp', async (ctx) => {
+  state.settings.tpEnabled = !state.settings.tpEnabled;
+  await ctx.answerCallbackQuery();
+  await renderSettingsMenu(ctx);
+});
+
+bot.callbackQuery('set_tp_val', async (ctx) => {
+  await ctx.answerCallbackQuery();
+  state.waitingInput = 'set_tp_val';
+  await ctx.reply('🎯 Yeni <b>Take Profit (TP)</b> faizini yazın (məs: 50 və ya 100):', { parse_mode: 'HTML' });
+});
+
+bot.callbackQuery('toggle_sl', async (ctx) => {
+  state.settings.slEnabled = !state.settings.slEnabled;
+  await ctx.answerCallbackQuery();
+  await renderSettingsMenu(ctx);
+});
+
+bot.callbackQuery('set_sl_val', async (ctx) => {
+  await ctx.answerCallbackQuery();
+  state.waitingInput = 'set_sl_val';
+  await ctx.reply('🛑 Yeni <b>Stop Loss (SL)</b> faizini yazın (məs: 20 və ya 30):', { parse_mode: 'HTML' });
 });
 
 bot.callbackQuery('toggle_king_tp', async (ctx) => {
   state.settings.kingTp = !state.settings.kingTp;
-  await ctx.answerCallbackQuery('King TP statusu dəyişdirildi');
-  await ctx.reply(`👑 King TP Status: <b>${state.settings.kingTp ? 'AKTİV' : 'DEAKTİV'}</b>`, { parse_mode: 'HTML' });
+  await ctx.answerCallbackQuery();
+  await renderSettingsMenu(ctx);
 });
 
 bot.callbackQuery('set_buy_amount', async (ctx) => {
   await ctx.answerCallbackQuery();
   state.waitingInput = 'change_buy_amount';
   await ctx.reply('✏️ Hər alqı-satqı üçün qoyulacaq SOL məbləğini yazın (məs: 0.05):');
+});
+
+bot.callbackQuery('set_prio_fee', async (ctx) => {
+  await ctx.answerCallbackQuery();
+  state.waitingInput = 'set_prio_fee';
+  await ctx.reply('⚡ İstədiyiniz <b>Priority Fee</b> məbləğini SOL ilə daxil edin (məs: 0.002):', { parse_mode: 'HTML' });
+});
+
+bot.callbackQuery('set_slippage', async (ctx) => {
+  await ctx.answerCallbackQuery();
+  state.waitingInput = 'set_slippage';
+  await ctx.reply('🔄 İstədiyiniz <b>Slippage</b> faizini daxil edin (məs: 2.5 və ya 5):', { parse_mode: 'HTML' });
 });
 
 bot.callbackQuery('view_language', async (ctx) => {
@@ -486,50 +539,4 @@ bot.callbackQuery(/^set_lang_(EN|AZ|TR|RU)$/, async (ctx) => {
 bot.callbackQuery('action_withdraw', async (ctx) => {
   await ctx.answerCallbackQuery();
   state.waitingInput = 'withdraw_addr';
-  await ctx.reply('💸 <b>SOL Transferi</b>\n\nGöndərmək istədiyiniz Solana cüzdan ünvanını daxil edin:', { parse_mode: 'HTML' });
-});
-
-bot.on('message:text', async (ctx) => {
-  const text = ctx.message.text.trim();
-
-  if (state.waitingInput === 'add_demo_sol_amount') {
-    const amt = parseFloat(text);
-    if (isNaN(amt) || amt <= 0) return ctx.reply('❌ Düzgün məbləğ daxil edin!');
-    state.demoBalanceSol += amt;
-    state.waitingInput = null;
-    return ctx.reply(`✅ <b>Demo Balansınız Yeniləndi:</b> ${state.demoBalanceSol.toFixed(4)} SOL`, { parse_mode: 'HTML' });
-  }
-
-  if (state.waitingInput === 'change_buy_amount') {
-    const amt = parseFloat(text);
-    if (isNaN(amt) || amt < 0.005) return ctx.reply(t('minBuyErr'));
-    state.settings.buyAmountSol = amt;
-    state.waitingInput = null;
-    return ctx.reply(`✅ Hər alış məbləği <b>${amt} SOL</b> olaraq təyin edildi!`, { parse_mode: 'HTML' });
-  }
-
-  if (state.waitingInput === 'target_address') {
-    try {
-      new PublicKey(text);
-      state.waitingInput = null;
-      
-      const mockUsername = '@pump_trader_' + text.substring(0, 4);
-      const isLowRisk = text.length % 2 === 0;
-
-      state.pendingTarget = {
-        address: text,
-        username: mockUsername,
-        winRate: isLowRisk ? '82%' : '35%',
-        riskLevel: isLowRisk ? '🟢 LOW RISK (Risksiz)' : '🔴 HIGH RISK (Rugpull riskli!)',
-        pnlUsd: '540.00'
-      };
-
-      const msg = `👤 <b>Pump.fun Profil Analizi:</b>\n\n` +
-        `Username: <b>${state.pendingTarget.username}</b>\n` +
-        `Ünvan: <code>${text}</code>\n` +
-        `Qazanma Nisbəti: <b>${state.pendingTarget.winRate}</b>\n` +
-        `Risk Statusu: <b>${state.pendingTarget.riskLevel}</b>\n\n` +
-        `Bu ünvanı təsdiqləyib izləmə siyahısına əlavə etmək istəyirsiniz?`;
-
-      const kb = new InlineKeyboard()
-        .text('✅ Təsdiqlə', 'confirm_add
+  await ctx.reply('
